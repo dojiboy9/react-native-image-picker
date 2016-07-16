@@ -445,6 +445,7 @@ RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options callback:(RCTResponseS
                     return;
                 }
             }
+
             NSDictionary *storageOptions = [self.options objectForKey:@"storageOptions"];
             if (storageOptions && [[storageOptions objectForKey:@"cameraRoll"] boolValue] == YES && self.picker.sourceType == UIImagePickerControllerSourceTypeCamera) {
                 ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
@@ -457,7 +458,43 @@ RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options callback:(RCTResponseS
                     }
                 }];
             }
-            [response setObject:videoDestinationURL.absoluteString forKey:@"uri"];
+
+            // Convert the MOV file to an MP4 file
+            AVURLAsset *avAsset = [AVURLAsset URLAssetWithURL:videoDestinationURL options:nil];
+            NSArray *compatiblePresets = [AVAssetExportSession exportPresetsCompatibleWithAsset:avAsset];
+
+            if ([compatiblePresets containsObject:AVAssetExportPresetLowQuality])
+            {
+                AVAssetExportSession *exportSession = [[AVAssetExportSession alloc]initWithAsset:avAsset presetName:AVAssetExportPresetPassthrough];
+                NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+                NSString *videoPath = [[videoDestinationURL path] stringByAppendingString:@".mp4"];
+
+                exportSession.outputURL = [NSURL fileURLWithPath:videoPath];
+                NSLog(@"videopath of your mp4 file = %@", videoPath);  // PATH OF YOUR .mp4 FILE
+                exportSession.outputFileType = AVFileTypeMPEG4;
+
+                [exportSession exportAsynchronouslyWithCompletionHandler:^{
+                    switch ([exportSession status]) {
+                        case AVAssetExportSessionStatusFailed:
+                            NSLog(@"Export failed: %@", [[exportSession error] localizedDescription]);
+                            break;
+                        case AVAssetExportSessionStatusCancelled:
+                            NSLog(@"Export canceled");
+                            break;
+                        default:
+                            NSLog(@"Export OK");
+                            break;
+                    }
+
+                    UISaveVideoAtPathToSavedPhotosAlbum(videoPath, self, nil, nil);
+                }];
+
+                [response setObject:exportSession.outputURL.absoluteString forKey:@"uri"];
+            }
+            else
+            {
+                [response setObject:videoDestinationURL.absoluteString forKey:@"uri"];
+            }
         }
 
         // If storage options are provided, check the skipBackup flag
