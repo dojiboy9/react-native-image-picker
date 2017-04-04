@@ -563,6 +563,16 @@ RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options callback:(RCTResponseS
     });
 }
 
+- (void)navigationController:(UINavigationController *)navigationController willShowViewController:(UIViewController *)viewController animated:(BOOL)animated
+{
+    NSString *title = [self.options valueForKey:@"title"];
+    if ([title isEqual:[NSNull null]] || title.length == 0) {
+        title = @"Photos";
+    }
+
+    [viewController.navigationItem setTitle:title];
+}
+
 #pragma mark - Helpers
 
 - (void)checkCameraPermissions:(void(^)(BOOL granted))callback
